@@ -11,8 +11,48 @@ import (
 // go test -v homework_test.go
 
 func Trace(stacks [][]uintptr) []uintptr {
-	// need to implement
-	return nil
+	root := make(map[uintptr]struct{})
+	for _, stack := range stacks {
+		for _, ptr := range stack {
+			if ptr != 0 {
+				root[ptr] = struct{}{}
+			}
+		}
+	}
+
+	visited := make(map[uintptr]struct{})
+	result := make([]uintptr, 0, len(root))
+
+	var walk func(uintptr)
+	walk = func(ptr uintptr) {
+		if ptr == 0 {
+			return
+		}
+		if _, ok := visited[ptr]; ok {
+			return
+		}
+		visited[ptr] = struct{}{}
+		result = append(result, ptr)
+
+		child := *(*uintptr)(unsafe.Pointer(ptr))
+		if child == 0 {
+			return
+		}
+
+		if _, isRoot := root[child]; !isRoot {
+			walk(child)
+		}
+	}
+
+	for _, stack := range stacks {
+		for _, ptr := range stack {
+			if ptr != 0 {
+				walk(ptr)
+			}
+		}
+	}
+
+	return result
 }
 
 func TestTrace(t *testing.T) {
