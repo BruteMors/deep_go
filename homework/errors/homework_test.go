@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,44 +20,36 @@ func (e *MultiError) Error() string {
 		return ""
 	}
 
-	flatError := fmt.Sprintf("%d errors occured:\n", len(e.Errors))
-	for _, err := range e.Errors {
-		flatError += fmt.Sprintf("\t* %s", err.Error())
-	}
-	flatError += "\n"
+	var sb strings.Builder
 
-	return flatError
+	sb.WriteString(fmt.Sprintf("%d errors occured:\n", len(e.Errors)))
+
+	for _, err := range e.Errors {
+		sb.WriteString(fmt.Sprintf("\t* %s", err.Error()))
+	}
+
+	sb.WriteString("\n")
+
+	return sb.String()
 }
 
 func Append(err error, errs ...error) *MultiError {
-	filteredErrs := make([]error, 0, len(errs))
+	var multiErr *MultiError
+
+	if !errors.As(err, &multiErr) && err != nil {
+		multiErr = &MultiError{Errors: []error{err}}
+	}
+
 	for _, e := range errs {
 		if e != nil {
-			filteredErrs = append(filteredErrs, e)
+			if multiErr == nil {
+				multiErr = &MultiError{}
+			}
+			multiErr.Errors = append(multiErr.Errors, e)
 		}
 	}
 
-	if err == nil && len(filteredErrs) == 0 {
-		return nil
-	}
-
-	var multiErr *MultiError
-	if errors.As(err, &multiErr) {
-		multiErr.Errors = append(multiErr.Errors, filteredErrs...)
-		return multiErr
-	}
-
-	resultErrs := make([]error, 0, len(filteredErrs)+1)
-
-	if err != nil {
-		resultErrs = append(resultErrs, err)
-	}
-
-	resultErrs = append(resultErrs, filteredErrs...)
-
-	return &MultiError{
-		Errors: resultErrs,
-	}
+	return multiErr
 }
 
 func TestMultiError(t *testing.T) {
