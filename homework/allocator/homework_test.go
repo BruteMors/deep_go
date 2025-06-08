@@ -23,28 +23,32 @@ func Defragment(memory []byte, pointers []unsafe.Pointer) {
 		ptrToIdx[addr] = append(ptrToIdx[addr], i)
 	}
 
-	nextFreeIdx := 0
+	oldToNewPos := make(map[uintptr]int)
+	usedBytes := make([]byte, 0, len(memory))
 
 	for i := 0; i < len(memory); i++ {
 		currentAddr := uintptr(basePtr) + uintptr(i)
 
-		if indices, exists := ptrToIdx[currentAddr]; exists {
-			if i != nextFreeIdx {
-				memory[nextFreeIdx] = memory[i]
-
-				for _, idx := range indices {
-					pointers[idx] = unsafe.Pointer(&memory[nextFreeIdx])
-				}
-			}
-			nextFreeIdx++
+		if _, exists := ptrToIdx[currentAddr]; exists {
+			oldToNewPos[currentAddr] = len(usedBytes)
+			usedBytes = append(usedBytes, memory[i])
 		}
 	}
 
-	for i := nextFreeIdx; i < len(memory); i++ {
+	copy(memory, usedBytes)
+
+	for i := len(usedBytes); i < len(memory); i++ {
 		memory[i] = 0
 	}
-}
 
+	for i := range pointers {
+		oldAddr := uintptr(pointers[i])
+
+		if newPos, exists := oldToNewPos[oldAddr]; exists {
+			pointers[i] = unsafe.Pointer(&memory[newPos])
+		}
+	}
+}
 func TestDefragmentation(t *testing.T) {
 	var fragmentedMemory = []byte{
 		0xFF, 0x00, 0x00, 0x00,
