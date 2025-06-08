@@ -11,9 +11,44 @@ import (
 // go test -v homework_test.go
 
 func Defragment(memory []byte, pointers []unsafe.Pointer) {
-	// need to implement
-}
+	if len(memory) == 0 || len(pointers) == 0 {
+		return
+	}
 
+	ptrToIdx := make(map[uintptr][]int)
+	basePtr := unsafe.Pointer(&memory[0])
+
+	for i, ptr := range pointers {
+		addr := uintptr(ptr)
+		ptrToIdx[addr] = append(ptrToIdx[addr], i)
+	}
+
+	oldToNewPos := make(map[uintptr]int)
+	usedBytes := make([]byte, 0, len(memory))
+
+	for i := 0; i < len(memory); i++ {
+		currentAddr := uintptr(basePtr) + uintptr(i)
+
+		if _, exists := ptrToIdx[currentAddr]; exists {
+			oldToNewPos[currentAddr] = len(usedBytes)
+			usedBytes = append(usedBytes, memory[i])
+		}
+	}
+
+	copy(memory, usedBytes)
+
+	for i := len(usedBytes); i < len(memory); i++ {
+		memory[i] = 0
+	}
+
+	for i := range pointers {
+		oldAddr := uintptr(pointers[i])
+
+		if newPos, exists := oldToNewPos[oldAddr]; exists {
+			pointers[i] = unsafe.Pointer(&memory[newPos])
+		}
+	}
+}
 func TestDefragmentation(t *testing.T) {
 	var fragmentedMemory = []byte{
 		0xFF, 0x00, 0x00, 0x00,
